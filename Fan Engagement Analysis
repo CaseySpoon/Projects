@@ -17,8 +17,8 @@ nltk.download('punkt')
 nltk.download('stopwords')
 
 # Load social media and survey data
-social_media_data = pd.read_csv(r'C:\Users\we210f\Downloads\social_media_data.csv')
-survey_data = pd.read_csv(r'C:\Users\we210f\Downloads\survey_data.csv')
+social_media_data = pd.read_csv(r'social_media_data.csv')
+survey_data = pd.read_csv(r'survey_data.csv')
 
 # Combine datasets
 data = pd.concat([social_media_data, survey_data])
