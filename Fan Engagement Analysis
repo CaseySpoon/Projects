@@ -1,0 +1,116 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import classification_report, confusion_matrix
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer
+import nltk
+
+nltk.download('punkt')
+nltk.download('stopwords')
+
+# Load social media and survey data
+social_media_data = pd.read_csv(r'C:\Users\we210f\Downloads\social_media_data.csv')
+survey_data = pd.read_csv(r'C:\Users\we210f\Downloads\survey_data.csv')
+
+# Combine datasets
+data = pd.concat([social_media_data, survey_data])
+
+# Display first few rows of the dataset
+print(data.head())
+
+# Text preprocessing function with stemming
+def preprocess_text(text):
+    tokens = word_tokenize(text.lower())
+    tokens = [word for word in tokens if word.isalpha()]
+    stop_words = set(stopwords.words('english'))
+    tokens = [word for word in tokens if word not in stop_words]
+    stemmer = PorterStemmer()
+    tokens = [stemmer.stem(word) for word in tokens]
+    return ' '.join(tokens)
+
+# Apply preprocessing
+data['processed_text'] = data['text'].apply(preprocess_text)
+
+# Vectorize the text data using TF-IDF
+vectorizer = TfidfVectorizer()
+
+# Create a pipeline with TF-IDF and Naive Bayes
+pipeline = Pipeline([
+    ('tfidf', vectorizer),
+    ('clf', MultinomialNB())
+])
+
+# Define hyperparameters to search
+parameters = {
+    'tfidf__max_df': [0.8, 0.9, 1.0],
+    'tfidf__min_df': [1, 2, 3],
+    'clf__alpha': [0.5, 1.0, 1.5]
+}
+
+# Perform Grid Search with Cross-Validation
+grid_search = GridSearchCV(pipeline, parameters, cv=5, scoring='accuracy', n_jobs=-1)
+grid_search.fit(data['processed_text'], data['sentiment'])
+
+# Get the best model
+best_model = grid_search.best_estimator_
+
+# Evaluate the best model with cross-validation
+cv_scores = cross_val_score(best_model, data['processed_text'], data['sentiment'], cv=5, scoring='accuracy')
+print(f"Cross-Validation Scores: {cv_scores}")
+print(f"Mean CV Accuracy: {cv_scores.mean()}")
+
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(data['processed_text'], data['sentiment'], test_size=0.2, random_state=42)
+
+# Fit the best model
+best_model.fit(X_train, y_train)
+
+# Make predictions
+y_pred = best_model.predict(X_test)
+
+# Evaluate the model
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
+
+print("Confusion Matrix:")
+cm = confusion_matrix(y_test, y_pred)
+print(cm)
+
+# Plot confusion matrix
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Negative', 'Positive'], yticklabels=['Negative', 'Positive'])
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Confusion Matrix')
+plt.show()
+
+# Compare with an ensemble model
+ensemble_model = Pipeline([
+    ('tfidf', vectorizer),
+    ('clf', RandomForestClassifier(n_estimators=100, random_state=42))
+])
+
+ensemble_model.fit(X_train, y_train)
+y_pred_ensemble = ensemble_model.predict(X_test)
+
+print("Ensemble Model Classification Report:")
+print(classification_report(y_test, y_pred_ensemble))
+
+print("Ensemble Model Confusion Matrix:")
+cm_ensemble = confusion_matrix(y_test, y_pred_ensemble)
+print(cm_ensemble)
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm_ensemble, annot=True, fmt='d', cmap='Blues', xticklabels=['Negative', 'Positive'], yticklabels=['Negative', 'Positive'])
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Ensemble Model Confusion Matrix')
+plt.show()
